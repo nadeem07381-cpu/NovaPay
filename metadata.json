@@ -1,0 +1,6 @@
+{
+  "name": "NovaPay",
+  "description": "Premium modern digital wallet for secure payments, transfers, and bill management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

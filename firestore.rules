@@ -1,0 +1,155 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserProfile(data) {
+      return data.uid is string &&
+             data.uid == request.auth.uid &&
+             data.displayName is string &&
+             data.displayName.size() >= 2 && data.displayName.size() <= 60 &&
+             data.email is string &&
+             data.email.size() >= 5 && data.email.size() <= 120 &&
+             (!('photoURL' in data) || data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 1000)) &&
+             (!('phoneNumber' in data) || data.phoneNumber == null || (data.phoneNumber is string && data.phoneNumber.size() <= 20)) &&
+             (data.balance is int || data.balance is float) &&
+             data.balance >= 0 &&
+             data.accountNumber is string &&
+             data.accountNumber.size() >= 5 && data.accountNumber.size() <= 34 &&
+             data.accountStatus in ['ACTIVE', 'VERIFIED', 'LIMITED'] &&
+             data.preferredCurrency in ['PKR'] &&
+             (!('onboardingCompleted' in data) || data.onboardingCompleted is bool) &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.type in ['SEND', 'RECEIVE', 'TOPUP', 'BILL', 'ADD_MONEY'] &&
+             data.title is string &&
+             data.title.size() >= 2 && data.title.size() <= 80 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 200)) &&
+             (data.amount is int || data.amount is float) &&
+             data.amount > 0 &&
+             data.currency in ['PKR'] &&
+             data.category is string &&
+             data.category.size() >= 2 && data.category.size() <= 40 &&
+             data.status in ['COMPLETED', 'PENDING', 'FAILED'] &&
+             (!('recipientName' in data) || (data.recipientName is string && data.recipientName.size() <= 80)) &&
+             (!('recipientAccount' in data) || (data.recipientAccount is string && data.recipientAccount.size() <= 40)) &&
+             data.referenceId is string &&
+             data.referenceId.size() >= 4 && data.referenceId.size() <= 64 &&
+             data.demoTransaction is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             (!('updatedAt' in data) || (data.updatedAt is timestamp && data.updatedAt <= request.time));
+    }
+
+    function isValidPreferences(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.theme in ['SYSTEM', 'LIGHT', 'DARK'] &&
+             data.language in ['English', 'Urdu'] &&
+             data.biometricEnabled is bool &&
+             data.notificationPreferences is bool &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidNotification(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.title is string &&
+             data.title.size() >= 2 && data.title.size() <= 100 &&
+             data.message is string &&
+             data.message.size() >= 2 && data.message.size() <= 300 &&
+             data.type in ['TRANSACTION', 'SECURITY', 'PROMO', 'SYSTEM'] &&
+             data.read is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    // User Profile
+    match /users/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().uid == existing().uid &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'phoneNumber', 'balance', 'onboardingCompleted', 'preferredCurrency', 'updatedAt']);
+
+      allow delete: if false;
+
+      // Transactions subcollection
+      match /transactions/{transactionId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(transactionId) &&
+                         isValidTransaction(incoming());
+
+        // Transactions are immutable audit records
+        allow update, delete: if false;
+      }
+
+      // Settings subcollection
+      match /settings/{settingId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create, update: if isSignedIn() &&
+                                 request.auth.uid == userId &&
+                                 isValidId(settingId) &&
+                                 isValidPreferences(incoming());
+
+        allow delete: if false;
+      }
+
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         isValidId(notificationId) &&
+                         isValidNotification(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidNotification(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+  }
+}

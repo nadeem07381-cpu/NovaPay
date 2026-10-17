@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Represents the user's primary wallet account, balance, and verification state.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Authenticated user UID" },
+        "displayName": { "type": "string", "description": "Full name of the wallet holder" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "photoURL": { "type": "string", "description": "Optional profile photo URL" },
+        "phoneNumber": { "type": "string", "description": "Pakistani phone number or account identifier" },
+        "balance": { "type": "number", "description": "Available wallet balance in PKR" },
+        "accountNumber": { "type": "string", "description": "Unique wallet account number (e.g., PK76NOVA000123456789)" },
+        "accountStatus": { "type": "string", "enum": ["ACTIVE", "VERIFIED", "LIMITED"], "description": "Account status" },
+        "preferredCurrency": { "type": "string", "enum": ["PKR"], "description": "Wallet base currency" },
+        "onboardingCompleted": { "type": "boolean", "description": "Flag indicating whether onboarding is done" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp" }
+      },
+      "required": ["uid", "displayName", "email", "balance", "accountNumber", "accountStatus", "preferredCurrency", "createdAt", "updatedAt"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Immutable ledger record of wallet transactions (transfers, deposits, bill payments, mobile load).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID of the transaction" },
+        "type": { "type": "string", "enum": ["SEND", "RECEIVE", "TOPUP", "BILL", "ADD_MONEY"], "description": "Transaction action type" },
+        "title": { "type": "string", "description": "Display title (e.g. Sent to Ahmed, Mobile Load)" },
+        "description": { "type": "string", "description": "Detailed explanation or purpose of transaction" },
+        "amount": { "type": "number", "description": "Transaction amount in PKR" },
+        "currency": { "type": "string", "enum": ["PKR"], "description": "Transaction currency" },
+        "category": { "type": "string", "description": "Category for spending analysis" },
+        "status": { "type": "string", "enum": ["COMPLETED", "PENDING", "FAILED"], "description": "Transaction state" },
+        "recipientName": { "type": "string", "description": "Counterparty or merchant name" },
+        "recipientAccount": { "type": "string", "description": "Counterparty account or phone number" },
+        "referenceId": { "type": "string", "description": "Unique transaction receipt reference ID" },
+        "demoTransaction": { "type": "boolean", "description": "Demo mode watermark flag" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Transaction submission timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Transaction settlement timestamp" }
+      },
+      "required": ["userId", "type", "title", "amount", "currency", "category", "status", "referenceId", "demoTransaction", "createdAt"]
+    },
+    "UserPreferences": {
+      "title": "UserPreferences",
+      "description": "User preferences for wallet display, notifications, and security.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Owner UID" },
+        "theme": { "type": "string", "enum": ["SYSTEM", "LIGHT", "DARK"], "description": "App theme mode" },
+        "language": { "type": "string", "enum": ["English", "Urdu"], "description": "Selected language" },
+        "biometricEnabled": { "type": "boolean", "description": "Biometric unlock toggle" },
+        "notificationPreferences": { "type": "boolean", "description": "Push notification toggle" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last updated timestamp" }
+      },
+      "required": ["userId", "theme", "language", "biometricEnabled", "notificationPreferences", "updatedAt"]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "In-app notifications for transaction updates and account alerts.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Recipient UID" },
+        "title": { "type": "string", "description": "Notification heading" },
+        "message": { "type": "string", "description": "Notification body text" },
+        "type": { "type": "string", "enum": ["TRANSACTION", "SECURITY", "PROMO", "SYSTEM"], "description": "Notification category" },
+        "read": { "type": "boolean", "description": "Whether the user has viewed the notification" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Notification delivery timestamp" }
+      },
+      "required": ["userId", "title", "message", "type", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile document containing balance and identity info"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/Transaction" },
+      "description": "User transaction ledger"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/UserPreferences" },
+      "description": "User preferences and security settings"
+    },
+    "/users/{userId}/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/NotificationItem" },
+      "description": "User in-app notifications"
+    }
+  }
+}
